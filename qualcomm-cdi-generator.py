@@ -64,7 +64,8 @@ hookscriptbindir = Path(destdir).joinpath('bin')
 Path(hookscriptbindir).mkdir(parents=True, exist_ok=True)
 hookscriptpath = Path(hookscriptbindir).joinpath(hookfilename)
 with open( hookscriptpath, "w") as hookscript:
-    hookscript.write("#!/bin/bash")
+    hookscript.write("#!/bin/bash\n")
+    hookscript.write("for node in " + " ".join(videonodes) + " ; do chmod 0660 ${node} ; done\n")
 hookscript.close()
 hookscriptpath.chmod(hookscriptpath.stat().st_mode | stat.S_IEXEC)
 
