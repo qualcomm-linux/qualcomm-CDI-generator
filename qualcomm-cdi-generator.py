@@ -6,7 +6,14 @@
 
 import glob
 import json
+from pathlib import Path
+import stat
 import sys
+
+# TODO: make these commandline options
+destdir = "./output"
+hookfilename = "vendor-hook"
+cdifilename = "qualcomm.json"
 
 def find_devicenodes(deviceglob):
     files = glob.glob(deviceglob)
@@ -43,7 +50,28 @@ render_cdi = generate_devicenodes_cdi('render', rendernodes)
 videonodes = find_devicenodes('/dev/video*')
 video_cdi = generate_devicenodes_cdi('video', videonodes)
 
+# Host-side helpers
+# TODO: generate helper scripts based the results of the above probes
+hooks = {"hooks" : [ {"hookname": "createContainer", "path": "/bin/" + hookfilename }]}
+
+# Assemble the complete CDI json
 cdimain = { "cdiVersion": "0.6.0", "kind": "qualcomm.com/gpu"}
 cdimain["devices"] = render_cdi + video_cdi 
+cdimain["containerEdits"] = hooks
 
-print(json.dumps(cdimain))
+# Generate hookscript that runs during createContainer
+hookscriptbindir = Path(destdir).joinpath('bin')
+Path(hookscriptbindir).mkdir(parents=True, exist_ok=True)
+hookscriptpath = Path(hookscriptbindir).joinpath(hookfilename)
+with open( hookscriptpath, "w") as hookscript:
+    hookscript.write("#!/bin/bash")
+hookscript.close()
+hookscriptpath.chmod(hookscriptpath.stat().st_mode | stat.S_IEXEC)
+
+# Write out complete CDI json
+dynamiccdidir = Path(destdir).joinpath('run/cdi')
+Path(dynamiccdidir).mkdir(parents=True, exist_ok=True)
+cdipath = Path(dynamiccdidir).joinpath(cdifilename)
+with open(cdipath, "w") as cdifile:
+    cdifile.write(json.dumps(cdimain))
+cdifile.close()
