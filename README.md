@@ -48,6 +48,10 @@ Server:
   cdi: qualcomm.com/gpu=video:all
 [...]
 ```
+You can then pass one or more of the above entries to the runtime:
+```
+root@qcs6490-rb3gen2-core-kit:~# docker run --device qualcomm.com/gpu=render0 --device qualcomm.com/gpu=video:all [..]
+```
 
 ## Development
 
