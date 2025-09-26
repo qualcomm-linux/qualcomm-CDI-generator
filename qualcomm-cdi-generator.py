@@ -54,7 +54,7 @@ video_cdi = generate_devicenodes_cdi('video', videonodes)
 
 # Check for DMA heap
 dmaheaps = find_devicenodes('/dev/dma_heap/*system')
-dmaheap_cdi = generate_devicenodes_cdi('dmaheap', dmaheaps)
+dmaheap_cdi = generate_devicenodes_cdi('dmaheap-system', dmaheaps)
 
 # Host-side helpers
 # TODO: generate helper scripts based the results of the above probes
