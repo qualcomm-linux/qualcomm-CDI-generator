@@ -56,13 +56,17 @@ video_cdi = generate_devicenodes_cdi('video', videonodes)
 dmaheaps = find_devicenodes('/dev/dma_heap/*system')
 dmaheap_cdi = generate_devicenodes_cdi('dmaheap-system', dmaheaps)
 
+# Check for DSP nodes
+cdsps = find_devicenodes('/dev/fastrpc-cdsp*')
+cdsps_cdi = generate_devicenodes_cdi('fastrpc-cdsp', cdsps)
+
 # Host-side helpers
 # TODO: generate helper scripts based the results of the above probes
 hooks = {"hooks" : [ {"hookname": "createContainer", "path": "/bin/" + hookfilename }]}
 
 # Assemble the complete CDI json
 cdimain = { "cdiVersion": "0.6.0", "kind": "qualcomm.com/gpu"}
-cdimain["devices"] = render_cdi + video_cdi + dmaheap_cdi
+cdimain["devices"] = render_cdi + video_cdi + dmaheap_cdi + cdsps_cdi
 cdimain["containerEdits"] = hooks
 
 # Generate hookscript that runs during createContainer
