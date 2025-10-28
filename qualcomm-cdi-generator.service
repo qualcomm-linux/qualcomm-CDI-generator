@@ -1,0 +1,11 @@
+[Unit]
+Description=Qualcomm CDI generator
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/qualcomm-cdi-generator.py
+# Make systemctl output less confusing: "active (exited)" vs "inactive (dead)"
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
