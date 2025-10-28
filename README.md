@@ -23,7 +23,6 @@ On the target run the CDI generator:
 ```shell
 # mkdir -p /run/cdi
 # qualcomm-cdi-generator.py
-# cp -a output/* /
 ```
 
 Example session:
@@ -33,7 +32,6 @@ root@qcs6490-rb3gen2-core-kit:~# ./qualcomm-cdi-generator.py
 {'name': 'render0', 'containerEdits': {'deviceNodes': [{'path': '/dev/dri/renderD128'}]}}
 {'name': 'video0', 'containerEdits': {'deviceNodes': [{'path': '/dev/video0'}]}}
 {'name': 'video1', 'containerEdits': {'deviceNodes': [{'path': '/dev/video1'}]}}
-root@qcs6490-rb3gen2-core-kit:~# cp -a output/* /
 root@qcs6490-rb3gen2-core-kit:~# docker info
 [...]
 Server:

@@ -12,7 +12,7 @@ import stat
 import sys
 
 # TODO: make these commandline options
-destdir = "./output"
+destdir = "/"
 hookfilename = "vendor-hook"
 cdifilename = "qualcomm.json"
 
