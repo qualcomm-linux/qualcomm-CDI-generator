@@ -1,2 +1,2 @@
 # qualcomm-cdi-generator.preset
-enable qualcomm-cdi-generator
+enable qualcomm-cdi-generator.service
