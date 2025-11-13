@@ -29,9 +29,11 @@ Example session:
 ```shell
 root@qcs6490-rb3gen2-core-kit:~# mkdir -p /run/cdi
 root@qcs6490-rb3gen2-core-kit:~# ./qualcomm-cdi-generator.py
-{'name': 'render0', 'containerEdits': {'deviceNodes': [{'path': '/dev/dri/renderD128'}]}}
+{'name': 'renderD128', 'containerEdits': {'deviceNodes': [{'path': '/dev/dri/renderD128'}]}}
 {'name': 'video0', 'containerEdits': {'deviceNodes': [{'path': '/dev/video0'}]}}
 {'name': 'video1', 'containerEdits': {'deviceNodes': [{'path': '/dev/video1'}]}}
+{'name': 'dmaheap-system', 'containerEdits': {'deviceNodes': [{'path': '/dev/dma_heap/system'}]}}
+{'name': 'fastrpc-cdsp', 'containerEdits': {'deviceNodes': [{'path': '/dev/fastrpc-cdsp'}]}}
 root@qcs6490-rb3gen2-core-kit:~# docker info
 [...]
 Server:
@@ -39,16 +41,108 @@ Server:
   /etc/cdi
   /var/run/cdi
  Discovered Devices:
-  cdi: qualcomm.com/gpu=render0
-  cdi: qualcomm.com/gpu=render:all
-  cdi: qualcomm.com/gpu=video0
-  cdi: qualcomm.com/gpu=video1
-  cdi: qualcomm.com/gpu=video:all
+  cdi: qualcomm.com/device=dmaheap-system
+  cdi: qualcomm.com/device=dmaheap-system:all
+  cdi: qualcomm.com/device=fastrpc-cdsp
+  cdi: qualcomm.com/device=fastrpc-cdsp:all
+  cdi: qualcomm.com/device=renderD128
+  cdi: qualcomm.com/device=renderD:all
+  cdi: qualcomm.com/device=video0
+  cdi: qualcomm.com/device=video1
+  cdi: qualcomm.com/device=video:all
 [...]
 ```
 You can then pass one or more of the above entries to the runtime:
-```
+```shell
 root@qcs6490-rb3gen2-core-kit:~# docker run --device qualcomm.com/gpu=render0 --device qualcomm.com/gpu=video:all [..]
+```
+
+The resulting CDI from the above session:
+```json
+{
+  "cdiVersion": "0.6.0",
+  "kind": "qualcomm.com/device",
+  "devices": [
+    {
+      "name": "renderD128",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/dri/renderD128" }
+        ]
+      }
+    },
+    {
+      "name": "renderD:all",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/dri/renderD128" }
+        ]
+      }
+    },
+    {
+      "name": "video0",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/video0" }
+        ]
+      }
+    },
+    {
+      "name": "video1",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/video1" }
+        ]
+      }
+    },
+    {
+      "name": "video:all",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/video0" },
+          { "path": "/dev/video1" }
+        ]
+      }
+    },
+    {
+      "name": "dmaheap-system",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/dma_heap/system" }
+        ]
+      }
+    },
+    {
+      "name": "dmaheap-system:all",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/dma_heap/system" }
+        ]
+      }
+    },
+    {
+      "name": "fastrpc-cdsp",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/fastrpc-cdsp" }
+        ]
+      }
+    },
+    {
+      "name": "fastrpc-cdsp:all",
+      "containerEdits": {
+        "deviceNodes": [
+          { "path": "/dev/fastrpc-cdsp" }
+        ]
+      }
+    }
+  ],
+  "containerEdits": {
+    "hooks": [
+      { "hookname": "createContainer", "path": "/bin/vendor-hook" }
+    ]
+  }
+}
 ```
 
 ## Development
