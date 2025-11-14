@@ -23,7 +23,7 @@ Recent versions of Podman (5.6.x) and Docker (28.3.x) work out of the box, for e
 }
 ```
 
-For Docker 28.0.x you only the feature enablement is needed:
+For Docker 28.0.x only the feature enablement is needed:
 ```json
 {
   "features": {
