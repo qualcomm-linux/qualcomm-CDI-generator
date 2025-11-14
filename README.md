@@ -12,6 +12,18 @@ Tooling to generate CDI config files to pass devices through to containers
 
 The main tool only requires python3 to generate a CDI. To consume it, you need a container runtime like podman or docker.
 
+Recent versions of Podman (5.6.x) and Docker (28.x) work out of the box, for earlier Docker versions (26.x) you'll need a `/etc/docker/daemon.json` file:
+
+```json
+{
+  "features": {
+     "cdi": true
+  },
+  "cdi-spec-dirs": ["/etc/cdi/", "/run/cdi"]
+}
+```
+Either restart the docker daemon or reboot to have this config take effect.
+
 ## Installation Instructions
 
 Copy over `qualcomm-cdi-generator.py`
