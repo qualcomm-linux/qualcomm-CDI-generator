@@ -38,8 +38,8 @@ def find_devicenodes(deviceglob):
     return files
 
 def generate_devicenodes_cdi(nickname, filesglob):
-    logging.info("Generating CDI entries for '%s' with %d node(s)", nickname, len(filesglob) if filesglob else 0)
     if filesglob:
+        logging.info("Generating CDI entries for '%s' with %d node(s)", nickname, len(filesglob) if filesglob else 0)
         rendernodeindex = 0
         rendernodelist = [None] * (len(filesglob) + 1)
         for rendernode in sorted(filesglob):
