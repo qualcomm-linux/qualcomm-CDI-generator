@@ -12,20 +12,23 @@ import stat
 import sys
 import logging
 import os
+import argparse
 
-# TODO: make these commandline options
-destdir = "/"
-hookfilename = "vendor-hook"
-cdifilename = "qualcomm.json"
+def setup_logging(verbosity: int) -> None:
+    level = logging.WARNING
+    if verbosity == 1:
+        level = logging.INFO
+    elif verbosity >= 2:
+        level = logging.DEBUG
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=level)
 
-def setup_logging():
-    level_name = os.environ.get("LOGLEVEL", "INFO").upper()
-    level = getattr(logging, level_name, logging.INFO)
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(levelname)s %(message)s",
-    )
-    logging.debug("Logging initialized at level %s", level_name)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate Qualcomm CDI and hook script")
+    parser.add_argument("-d", "--destdir", default="/", help="Destination root directory (default: %(default)s)")
+    parser.add_argument("-H", "--hookfilename", default="vendorhook", help="Hook script filename (default: %(default)s)")
+    parser.add_argument("-c", "--cdifilename", default="qualcomm.json", help="CDI JSON filename (default: %(default)s)")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity (-v, -vv)")
+    return parser.parse_args()
 
 def find_devicenodes(deviceglob):
     logging.debug("Globbing device nodes: %s", deviceglob)
@@ -74,8 +77,15 @@ def get_devicenode_index(nodename):
     return int(nodeindex.group()) if nodeindex else None
 
 def main() -> int:
-    setup_logging()
+    args = parse_args()
+    setup_logging(args.verbose)
     logging.info("Starting Qualcomm CDI generation")
+    logging.info("Config: destdir=%s, hookfilename=%s, cdifilename=%s", args.destdir, args.hookfilename, args.cdifilename)
+
+    # Use CLI-configured values
+    destdir = args.destdir
+    hookfilename = args.hookfilename
+    cdifilename = args.cdifilename
 
     # Find rendernodes and create entries for them
     rendernodes = find_devicenodes('/dev/dri/renderD*')
