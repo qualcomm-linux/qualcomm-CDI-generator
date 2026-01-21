@@ -42,10 +42,10 @@ def generate_devicenodes_cdi(nickname, filesglob):
         logging.info("Generating CDI entries for '%s' with %d node(s)", nickname, len(filesglob) if filesglob else 0)
         devicenodeindex = 0
         devicenodelist = [None] * (len(filesglob) + 1)
-        for rendernode in sorted(filesglob):
-            gpu_path = {"path": rendernode}
-            device_pathlist = { "deviceNodes": [ gpu_path ] }
-            cdi_index = get_devicenode_index(rendernode)
+        for devicenode in sorted(filesglob):
+            device_path = {"path": devicenode}
+            device_pathlist = { "deviceNodes": [ device_path ] }
+            cdi_index = get_devicenode_index(devicenode)
             # If there's only one match *and* it doesn't have its own index, don't add the '0' index
             if len(filesglob) == 1 and not cdi_index:
                 cdi_index = ""
@@ -59,11 +59,11 @@ def generate_devicenodes_cdi(nickname, filesglob):
             devicenodeindex += 1
 
         catchallindex = 0
-        gpu_paths = [None] * len(filesglob)
-        for rendernode in sorted(filesglob):
-            gpu_paths[catchallindex] = {"path": rendernode}
+        device_paths = [None] * len(filesglob)
+        for devicenode in sorted(filesglob):
+            device_paths[catchallindex] = {"path": devicenode}
             catchallindex += 1
-        device_pathlist = { "deviceNodes":  gpu_paths  }
+        device_pathlist = { "deviceNodes":  device_paths  }
         device_entrys = { "name": nickname+":all", "containerEdits": device_pathlist }
         logging.debug("CDI catch-all entry: %s", device_entrys)
         devicenodelist[devicenodeindex] = device_entrys
