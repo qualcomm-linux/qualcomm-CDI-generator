@@ -40,37 +40,37 @@ def find_devicenodes(deviceglob):
 def generate_devicenodes_cdi(nickname, filesglob):
     if filesglob:
         logging.info("Generating CDI entries for '%s' with %d node(s)", nickname, len(filesglob) if filesglob else 0)
-        rendernodeindex = 0
-        rendernodelist = [None] * (len(filesglob) + 1)
+        devicenodeindex = 0
+        devicenodelist = [None] * (len(filesglob) + 1)
         for rendernode in sorted(filesglob):
             gpu_path = {"path": rendernode}
-            gpu_pathlist = { "deviceNodes": [ gpu_path ] }
+            device_pathlist = { "deviceNodes": [ gpu_path ] }
             cdi_index = get_devicenode_index(rendernode)
             # If there's only one match *and* it doesn't have its own index, don't add the '0' index
             if len(filesglob) == 1 and not cdi_index:
                 cdi_index = ""
             # Reuse the devicenode index if present, otherwise generate our own
             if cdi_index is not None:
-                device_gpu = { "name": nickname+str(cdi_index), "containerEdits": gpu_pathlist }
+                device_entry = { "name": nickname+str(cdi_index), "containerEdits": device_pathlist }
             else:
-                device_gpu = { "name": nickname+str(rendernodeindex), "containerEdits": gpu_pathlist }
-            logging.debug("CDI device entry: %s", device_gpu)
-            rendernodelist[rendernodeindex] = device_gpu
-            rendernodeindex += 1
+                device_entry = { "name": nickname+str(devicenodeindex), "containerEdits": device_pathlist }
+            logging.debug("CDI device entry: %s", device_entry)
+            devicenodelist[devicenodeindex] = device_entry
+            devicenodeindex += 1
 
         catchallindex = 0
         gpu_paths = [None] * len(filesglob)
         for rendernode in sorted(filesglob):
             gpu_paths[catchallindex] = {"path": rendernode}
             catchallindex += 1
-        gpu_pathlist = { "deviceNodes":  gpu_paths  }
-        device_gpus = { "name": nickname+":all", "containerEdits": gpu_pathlist }
-        logging.debug("CDI catch-all entry: %s", device_gpus)
-        rendernodelist[rendernodeindex] = device_gpus
+        device_pathlist = { "deviceNodes":  gpu_paths  }
+        device_entrys = { "name": nickname+":all", "containerEdits": device_pathlist }
+        logging.debug("CDI catch-all entry: %s", device_entrys)
+        devicenodelist[devicenodeindex] = device_entrys
     else:
-        rendernodelist = []
+        devicenodelist = []
         logging.debug("No nodes found for '%s'; no CDI entries generated", nickname)
-    return rendernodelist
+    return devicenodelist
 
 def get_devicenode_index(nodename):
     nodeindex = re.search(r'\d+$', nodename)
