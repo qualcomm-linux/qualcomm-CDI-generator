@@ -43,7 +43,12 @@ def generate_devicenodes_cdi(nickname, filesglob):
         devicenodeindex = 0
         devicenodelist = [None] * (len(filesglob) + 1)
         for devicenode in sorted(filesglob):
-            device_path = {"path": devicenode}
+            # Special case cdsp, which was a -secure sibling node
+            if str(devicenode).endswith('cdsp'):
+                logging.debug("CDSP detected, adding regular and -secure variants")
+                device_path = {"path": devicenode}, {"path": devicenode + "-secure"}
+            else:
+                device_path = {"path": devicenode}
             device_pathlist = { "deviceNodes": [ device_path ] }
             cdi_index = get_devicenode_index(devicenode)
             # If there's only one match *and* it doesn't have its own index, don't add the '0' index
@@ -61,7 +66,11 @@ def generate_devicenodes_cdi(nickname, filesglob):
         catchallindex = 0
         device_paths = [None] * len(filesglob)
         for devicenode in sorted(filesglob):
-            device_paths[catchallindex] = {"path": devicenode}
+            if str(devicenode).endswith('cdsp'):
+                logging.debug("CDSP detected, adding regular and -secure variants")
+                device_paths[catchallindex] = {"path": devicenode}, {"path": devicenode + "-secure"}
+            else:
+                device_paths[catchallindex] = {"path": devicenode}
             catchallindex += 1
         device_pathlist = { "deviceNodes":  device_paths  }
         device_entrys = { "name": nickname+":all", "containerEdits": device_pathlist }
