@@ -104,6 +104,9 @@ def main() -> int:
     cdsps = find_devicenodes('/dev/fastrpc-cdsp')
     cdsps_cdi = generate_devicenodes_cdi('fastrpc-cdsp', cdsps)
 
+    adsps = find_devicenodes('/dev/fastrpc-adsp')
+    adsps_cdi = generate_devicenodes_cdi('fastrpc-adsp', adsps)
+
     # Host-side helpers
     # TODO: generate helper scripts based the results of the above probes
     hooks = {"hooks" : [ {"hookname": "createContainer", "path": "/bin/" + hookfilename }]}
@@ -112,7 +115,7 @@ def main() -> int:
 
     # Assemble the complete CDI json
     cdimain = { "cdiVersion": "0.6.0", "kind": "qualcomm.com/device"}
-    cdimain["devices"] = render_cdi + video_cdi + dmaheap_cdi + cdsps_cdi
+    cdimain["devices"] = render_cdi + video_cdi + dmaheap_cdi + cdsps_cdi + adsps_cdi
     cdimain["containerEdits"] = hooks
 
     # Generate hookscript that runs during createContainer
