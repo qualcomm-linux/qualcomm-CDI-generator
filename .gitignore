@@ -1,1 +1,8 @@
 output
+debian/.debhelper/
+debian/copyright
+debian/debhelper-build-stamp
+debian/files
+debian/qualcomm-cdi-generator*
+#
+

@@ -1,0 +1,12 @@
+Source: qualcomm-cdi-generator
+Maintainer: Koen Kooi <koen.kooi@oss.qualcomm.com>
+Section: misc
+Priority: optional
+Standards-Version: 4.7.0
+Build-Depends: debhelper-compat (= 13), meson, systemd-dev
+
+Package: qualcomm-cdi-generator
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3:any 
+Description: Generate CDI configs
+ Qualcomm-CDI-generator generates CDI config files for containers
