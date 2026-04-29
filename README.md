@@ -34,14 +34,14 @@ Either restart the docker daemon or reboot to have this config take effect.
 
 ## Installation Instructions
 
-Copy over `qualcomm-cdi-generator.py`
+Copy over `qualcomm-cdi-generator`
 
 ## Usage
 
 On the target, run the CDI generator as root. The output directory `/run/cdi` is created automatically:
 
 ```shell
-# qualcomm-cdi-generator.py
+# qualcomm-cdi-generator
 ```
 
 The tool probes the hardware, writes one CDI JSON file per device class under `/run/cdi`, and writes a hook script to `/bin/vendorhook`. Run with `-v` to see what was found and written, or `-vv` for full debug output.
@@ -60,7 +60,7 @@ The tool probes the hardware, writes one CDI JSON file per device class under `/
 ### Example session
 
 ```shell
-(cdi) root@ventunoq:~# qualcomm-cdi-generator.py -v
+(cdi) root@ventunoq:~# qualcomm-cdi-generator -v
 INFO: Starting Qualcomm CDI generation
 INFO: Config: destdir=/, hookfilename=vendorhook, cdifilename=qualcomm.json, dry_run=False
 INFO: Found 1 nodes for pattern /dev/dri/renderD*
@@ -194,7 +194,7 @@ MACHINE_NAME=Arduino Monza
 
 To generate only the fastrpc classes:
 ```shell
-(cdi) root@ventunoq:~# qualcomm-cdi-generator.py --classes fastrpc-cdsp,fastrpc-adsp -v
+(cdi) root@ventunoq:~# qualcomm-cdi-generator --classes fastrpc-cdsp,fastrpc-adsp -v
 INFO: Starting Qualcomm CDI generation
 INFO: Config: destdir=/, hookfilename=vendorhook, cdifilename=qualcomm.json, dry_run=False
 INFO: Found 1 nodes for pattern /dev/dri/renderD*
