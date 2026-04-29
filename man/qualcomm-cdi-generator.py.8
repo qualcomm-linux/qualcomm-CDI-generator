@@ -1,0 +1,162 @@
+.TH QUALCOMM\-CDI\-GENERATOR.PY 8 "2026\-03\-18" "qualcomm\-cdi\-generator 0.4" "System Administration"
+.SH NAME
+qualcomm\-cdi\-generator \- generate CDI configuration files for Qualcomm hardware
+.SH SYNOPSIS
+.B qualcomm\-cdi\-generator.py
+.RB [ \-d
+.IR destdir ]
+.RB [ \-H
+.IR hookfilename ]
+.RB [ \-c
+.IR cdifilename ]
+.RB [ \-C
+.IR class,... ]
+.RB [ \-n ]
+.RB [ \-v | \-vv ]
+.SH DESCRIPTION
+.B qualcomm\-cdi\-generator
+probes the local system for Qualcomm hardware accelerators and writes
+.IR "Container Device Interface" " (CDI)"
+JSON specification files to
+.IR /run/cdi/ .
+Container runtimes that support the CDI specification can then use these
+files to pass the relevant device nodes directly into containers.
+.PP
+In addition to the CDI JSON files, the tool writes a vendor hook script to
+.IR /bin/vendorhook .
+This script is referenced from the CDI files and is called by the container
+runtime during the
+.B createContainer
+lifecycle event to set device node permissions to 0666.
+.PP
+For FastRPC device classes
+.RB ( fastrpc\-cdsp " and " fastrpc\-adsp ),
+the tool also bind\-mounts Hexagon DSP firmware trees found under
+.I /usr/share
+and exposes the board model string via the
+.B MACHINE_NAME
+environment variable and a bind\-mount at
+.IR /run/device\-model .
+.PP
+The tool is typically invoked by the
+.BR qualcomm\-cdi\-generator.service (8)
+systemd oneshot service at boot time.
+.SH OPTIONS
+.TP
+.BR \-d ", " \-\-destdir " " \fIdestdir\fR
+Write all output files relative to
+.I destdir
+instead of the filesystem root.
+Default:
+.IR / .
+.TP
+.BR \-H ", " \-\-hookfilename " " \fIname\fR
+Filename for the generated vendor hook script, placed inside
+.IR destdir /bin/ .
+Default:
+.IR vendorhook .
+.TP
+.BR \-c ", " \-\-cdifilename " " \fIbase\fR
+Base filename for the CDI JSON output files.
+The device class name is inserted before the file extension; for example,
+a base of
+.B qualcomm.json
+produces
+.IR qualcomm\-gpu.json ,
+.IR qualcomm\-v4l2.json ,
+etc.
+Default:
+.IR qualcomm.json .
+.TP
+.BR \-C ", " \-\-classes " " \fIclass,...\fR
+Comma\-separated list of device classes to generate.
+When omitted all known classes are generated.
+See
+.B DEVICE CLASSES
+below for the list of valid values.
+.TP
+.BR \-n ", " \-\-dry\-run
+Probe devices and log what would be written, but do not create or modify
+any files.
+.TP
+.B \-v
+Increase verbosity.
+Specify once for
+.B INFO
+messages; twice
+.RB ( \-vv )
+for
+.B DEBUG
+messages.
+Default log level is
+.BR WARNING .
+.SH DEVICE CLASSES
+Each class corresponds to a family of Qualcomm hardware devices.
+.TP
+.B gpu
+GPU render nodes, probed from
+.IR /dev/dri/renderD* .
+CDI entries are named
+.IR renderD<index> .
+.TP
+.B v4l2
+Video4Linux2 capture and output devices, probed from
+.IR /dev/video* .
+CDI entries are named
+.IR video<index> .
+.TP
+.B dmaheap
+DMA\-BUF heap devices, probed from
+.IR /dev/dma_heap/*system .
+CDI entries are named
+.IR dmaheap\-system .
+.TP
+.B fastrpc\-cdsp
+Qualcomm FastRPC Compute DSP nodes, probed from
+.IR /dev/fastrpc\-cdsp* .
+A paired
+.I /dev/fastrpc\-cdsp\-secure
+node, if present, is grouped with its non\-secure sibling rather than
+appearing as a separate CDI entry.
+.TP
+.B fastrpc\-adsp
+Qualcomm FastRPC Audio DSP nodes, probed from
+.IR /dev/fastrpc\-adsp* .
+A paired
+.I /dev/fastrpc\-adsp\-secure
+node, if present, is grouped with its non\-secure sibling.
+.PP
+Every class also receives a catch\-all
+.BI name :all
+CDI entry that selects every node of that class in a single reference.
+.SH FILES
+.TP
+.I /run/cdi/qualcomm\-<class>.json
+CDI specification files, one per device class with detected nodes.
+Created at runtime and not persistent across reboots.
+.TP
+.I /bin/vendorhook
+Generated vendor hook script invoked by the container runtime during
+container creation to set device node permissions.
+.TP
+.I /usr/share/*/*/*/*/dsp/
+Hexagon DSP firmware directories bind\-mounted into containers for
+FastRPC device classes.
+.TP
+.I /sys/firmware/devicetree/base/model
+Read to obtain the board model string, exposed as the
+.B MACHINE_NAME
+container environment variable and bind\-mounted at
+.IR /run/device\-model
+(FastRPC classes only).
+.TP
+.I /lib/systemd/system/qualcomm\-cdi\-generator.service
+Systemd oneshot unit that invokes this tool at boot.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR systemd.service (5)
+.SH AUTHORS
+Maintained by Koen Kooi
+.RI < koen.kooi@oss.qualcomm.com >.
+.br
+Copyright \(co Qualcomm Technologies, Inc. and/or its subsidiaries.
