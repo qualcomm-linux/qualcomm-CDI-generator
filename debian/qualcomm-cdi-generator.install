@@ -1,0 +1,3 @@
+qualcomm-cdi-generator.py usr/sbin/
+qualcomm-cdi-generator.service usr/lib/systemd/system/
+10-qualcomm-cdi-generator.preset usr/lib/systemd/system-preset/

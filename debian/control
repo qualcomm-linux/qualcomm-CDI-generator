@@ -1,0 +1,25 @@
+Source: qualcomm-cdi-generator
+Maintainer: Koen Kooi <koen.kooi@oss.qualcomm.com>
+Homepage: https://github.com/qualcomm-linux/qualcomm-CDI-generator
+Section: admin
+Priority: optional
+Rules-Requires-Root: no
+Standards-Version: 4.7.0
+Build-Depends: debhelper-compat (= 13), dh-python, python3, python3-setuptools
+
+Package: qualcomm-cdi-generator
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: CDI configuration generator for Qualcomm hardware
+ qualcomm-cdi-generator probes the local hardware and writes Container
+ Device Interface (CDI) JSON files so that container runtimes can pass
+ Qualcomm accelerators directly into containers.
+ .
+ Supported device classes:
+  - GPU render nodes (/dev/dri/renderD*)
+  - V4L2 video devices (/dev/video*)
+  - DMA-BUF heap (/dev/dma_heap/*system)
+  - FastRPC CDSP nodes (/dev/fastrpc-cdsp*)
+  - FastRPC ADSP nodes (/dev/fastrpc-adsp*)
+ .
+ A systemd oneshot service is included to run the generator at boot.
