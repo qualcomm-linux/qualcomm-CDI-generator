@@ -54,6 +54,8 @@ On the target, run the CDI generator as root. The output directory `/run/cdi` is
 
 The tool probes the hardware, writes one CDI JSON file per device class under `/run/cdi`, and writes a hook script to `/bin/vendorhook`. Run with `-v` to see what was found and written, or `-vv` for full debug output.
 
+A udev rule (`99-qualcomm-cdi-generator.rules`) restarts `qualcomm-cdi-generator.service` whenever a GPU render node, V4L2 device, DMA-BUF heap, or FastRPC CDSP/ADSP node is added or removed, so the generated CDI files stay in sync with hotplugged hardware without a reboot.
+
 ### Command-line options
 
 | Option | Long form | Default | Description |
