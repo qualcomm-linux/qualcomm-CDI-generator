@@ -80,7 +80,7 @@ FAKE_NODES = {
 }
 
 
-def run_generator(extra_argv, fake_nodes=FAKE_NODES):
+def run_generator(extra_argv, fake_nodes=FAKE_NODES, mute_logging=True):
     """Run main() with synthetic device discovery into a fresh argv.
 
     find_devicenodes is replaced with controlled node lists and the direct
@@ -106,12 +106,14 @@ def run_generator(extra_argv, fake_nodes=FAKE_NODES):
             mock.patch.object(gen.glob, "glob", fake_glob), \
             mock.patch.object(sys, "argv", ["qualcomm-cdi-generator.py"] + extra_argv):
         # main() calls setup_logging(), which would print the generator's log
-        # lines to the test console; keep the suite output clean by muting it.
-        logging.disable(logging.CRITICAL)
+        # lines to the test console; keep the suite output clean by default.
+        if mute_logging:
+            logging.disable(logging.CRITICAL)
         try:
             return gen.main()
         finally:
-            logging.disable(logging.NOTSET)
+            if mute_logging:
+                logging.disable(logging.NOTSET)
 
 
 class StructuralTests(unittest.TestCase):
@@ -197,6 +199,42 @@ class StructuralTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             self.assertTrue(legacy.exists(), "dry run must not remove the legacy CDI")
+
+    def test_stale_per_class_cdi_removed_when_class_disappears(self):
+        # If a class had devices previously but now has none, remove its
+        # per-class file so hot-unplug converges on the live hardware state.
+        with tempfile.TemporaryDirectory() as d:
+            cdi_dir = Path(d) / "run" / "cdi"
+            cdi_dir.mkdir(parents=True)
+            stale_gpu = cdi_dir / "qualcomm-gpu.json"
+            stale_gpu.write_text('{"cdiVersion": "0.6.0", "kind": "qualcomm.com/gpu"}')
+
+            fake_nodes_no_gpu = dict(FAKE_NODES)
+            fake_nodes_no_gpu["/dev/dri/renderD*"] = []
+            rc = run_generator(["-d", d], fake_nodes=fake_nodes_no_gpu)
+
+            self.assertEqual(rc, 0)
+            self.assertFalse(stale_gpu.exists(), "stale per-class CDI was not removed")
+
+    def test_stale_per_class_cdi_preserved_on_dry_run(self):
+        # Dry-run must report stale files but leave them untouched.
+        with tempfile.TemporaryDirectory() as d:
+            cdi_dir = Path(d) / "run" / "cdi"
+            cdi_dir.mkdir(parents=True)
+            stale_gpu = cdi_dir / "qualcomm-gpu.json"
+            stale_gpu.write_text("{}")
+
+            fake_nodes_no_gpu = dict(FAKE_NODES)
+            fake_nodes_no_gpu["/dev/dri/renderD*"] = []
+            with self.assertLogs(level="INFO") as logs:
+                rc = run_generator(["-d", d, "-n", "-v"],
+                                   fake_nodes=fake_nodes_no_gpu,
+                                   mute_logging=False)
+
+            self.assertEqual(rc, 0)
+            self.assertTrue(stale_gpu.exists(), "dry run must not remove stale per-class CDI")
+            self.assertIn("would remove stale CDI JSON for 'gpu'",
+                          "\n".join(logs.output))
 
     def _hook_nodes(self, destdir):
         """Return the list of node paths chmod'd by the generated hook script."""

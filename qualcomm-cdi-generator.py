@@ -290,12 +290,19 @@ def main() -> int:
             legacy_cdi.unlink()
 
     for cdiclass, devices in cdi_sections:
-        if not devices:
-            logging.debug("Skipping CDI file for '%s': no devices", cdiclass)
-            continue
-        cdi = build_cdi_spec(cdiclass, devices, hookfilename, enventries, mountentries)
         section_filename = "%s-%s%s" % (cdifilename_stem, cdiclass, cdifilename_suffix)
         cdipath = dynamiccdidir.joinpath(section_filename)
+        if not devices:
+            if cdipath.is_file():
+                if args.dry_run:
+                    logging.info("Dry run: would remove stale CDI JSON for '%s': %s", cdiclass, cdipath)
+                else:
+                    cdipath.unlink()
+                    logging.info("Removed stale CDI JSON for '%s': %s", cdiclass, cdipath)
+            else:
+                logging.debug("Skipping CDI file for '%s': no devices", cdiclass)
+            continue
+        cdi = build_cdi_spec(cdiclass, devices, hookfilename, enventries, mountentries)
         if args.dry_run:
             logging.info("Dry run: skipping CDI JSON write to %s", cdipath)
         else:
