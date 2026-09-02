@@ -13,14 +13,14 @@
 # once) collapses into a single regeneration.
 
 # GPU render nodes (/dev/dri/renderD*)
-SUBSYSTEM=="drm", KERNEL=="renderD*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="add|remove", SUBSYSTEM=="drm", KERNEL=="renderD*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
 
 # V4L2 video devices (/dev/video*)
-SUBSYSTEM=="video4linux", KERNEL=="video*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="add|remove", SUBSYSTEM=="video4linux", KERNEL=="video*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
 
 # DMA-BUF heaps (/dev/dma_heap/*system)
-SUBSYSTEM=="dma_heap", KERNEL=="*system", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="add|remove", SUBSYSTEM=="dma_heap", KERNEL=="*system", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
 
 # FastRPC CDSP/ADSP nodes, including their -secure siblings
 # (/dev/fastrpc-cdsp*, /dev/fastrpc-adsp*)
-SUBSYSTEM=="misc", KERNEL=="fastrpc-*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="add|remove", SUBSYSTEM=="misc", KERNEL=="fastrpc-*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"

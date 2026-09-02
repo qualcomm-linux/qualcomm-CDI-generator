@@ -198,6 +198,37 @@ class StructuralTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertTrue(legacy.exists(), "dry run must not remove the legacy CDI")
 
+    def test_stale_per_class_cdi_removed_when_class_disappears(self):
+        # If a class had devices previously but now has none, its per-class file
+        # must be removed so CDI state converges after hot-unplug/removal.
+        with tempfile.TemporaryDirectory() as d:
+            cdi_dir = Path(d) / "run" / "cdi"
+            cdi_dir.mkdir(parents=True)
+            stale_gpu = cdi_dir / "qualcomm-gpu.json"
+            stale_gpu.write_text('{"cdiVersion": "0.6.0", "kind": "qualcomm.com/gpu"}')
+
+            fake_nodes_no_gpu = dict(FAKE_NODES)
+            fake_nodes_no_gpu["/dev/dri/renderD*"] = []
+            rc = run_generator(["-d", d], fake_nodes=fake_nodes_no_gpu)
+
+            self.assertEqual(rc, 0)
+            self.assertFalse(stale_gpu.exists(), "stale per-class CDI was not removed")
+
+    def test_stale_per_class_cdi_preserved_on_dry_run(self):
+        # Dry-run must report stale files but not remove them.
+        with tempfile.TemporaryDirectory() as d:
+            cdi_dir = Path(d) / "run" / "cdi"
+            cdi_dir.mkdir(parents=True)
+            stale_gpu = cdi_dir / "qualcomm-gpu.json"
+            stale_gpu.write_text("{}")
+
+            fake_nodes_no_gpu = dict(FAKE_NODES)
+            fake_nodes_no_gpu["/dev/dri/renderD*"] = []
+            rc = run_generator(["-d", d, "-n"], fake_nodes=fake_nodes_no_gpu)
+
+            self.assertEqual(rc, 0)
+            self.assertTrue(stale_gpu.exists(), "dry run must not remove stale per-class CDI")
+
     def _hook_nodes(self, destdir):
         """Return the list of node paths chmod'd by the generated hook script."""
         text = (Path(destdir) / "bin" / "vendorhook").read_text()
