@@ -22,7 +22,6 @@ import re
 import stat
 import sys
 import logging
-import os
 import argparse
 
 known_classes = ['gpu', 'v4l2', 'dmaheap', 'fastrpc-cdsp', 'fastrpc-adsp']

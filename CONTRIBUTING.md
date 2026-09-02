@@ -65,10 +65,35 @@ To maintain the security and integrity of this project, all pull requests from e
 
 By submitting a PR, you agree to participate in this process and help us keep the project secure for everyone.
 
+## Running checks locally
+
+Run the structural tests with only Python:
+
+```bash
+python3 -m unittest tests.test_cdi_validation.StructuralTests -v
+```
+
+Install the upstream `cdi` command and run the complete suite with its path set
+explicitly so schema validation cannot be skipped:
+
+```bash
+CDI_TOOL=/path/to/cdi python3 -m unittest discover -s tests -v
+```
+
+The development requirements provide the same Python lint and packaging tools
+used by CI:
+
+```bash
+python3 -m pip install --requirement requirements-dev.txt
+python3 -m ruff check qualcomm-cdi-generator.py tests
+python3 -m build
+meson setup build/meson --prefix=/usr
+meson compile -C build/meson
+```
 
 Here are a few things you can do that will increase the likelihood of your pull request to be accepted:
 
-- Follow the existing style where possible. **INSERT LINK TO STYLE, e.g. PEP8 for python**
+- Follow the existing style and [PEP 8](https://peps.python.org/pep-0008/) where possible.
 - Write tests.
 - Keep your change as focused as possible.
   If you want to make multiple independent changes, please consider submitting them as separate pull requests.

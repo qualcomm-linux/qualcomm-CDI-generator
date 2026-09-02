@@ -1,0 +1,194 @@
+name: Project CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CDI_COMMIT: 98a7d735d9592c1ccca0130e06b0709f4b65ecbf # v1.1.0
+
+jobs:
+  python-tests:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.14"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run structural tests
+        run: python -m unittest tests.test_cdi_validation.StructuralTests -v
+
+  cdi-validation:
+    name: CDI validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: Install CDI validator
+        run: |
+          cdi_ref="$CDI_COMMIT"
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            cdi_ref="$(curl --fail --silent --show-error \
+              https://api.github.com/repos/cncf-tags/container-device-interface/releases/latest |
+              python -c 'import json, sys; print(json.load(sys.stdin)["tag_name"])')"
+          fi
+          git init --quiet "$RUNNER_TEMP/cdi-source"
+          git -C "$RUNNER_TEMP/cdi-source" remote add origin \
+            https://github.com/cncf-tags/container-device-interface.git
+          git -C "$RUNNER_TEMP/cdi-source" fetch --quiet --depth=1 origin "$cdi_ref"
+          git -C "$RUNNER_TEMP/cdi-source" checkout --quiet --detach FETCH_HEAD
+          (
+            cd "$RUNNER_TEMP/cdi-source/cmd/cdi"
+            go build -o "$RUNNER_TEMP/cdi" .
+          )
+          sudo mkdir --parents /etc/cdi /var/run/cdi
+          echo "CDI_TOOL=$RUNNER_TEMP/cdi" >> "$GITHUB_ENV"
+
+      - name: Run complete test suite
+        run: python -m unittest discover -s tests -v
+
+  packaging:
+    name: Packaging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install build tools
+        run: |
+          python -m pip install --requirement requirements-dev.txt
+          sudo apt-get update
+          sudo apt-get install --yes systemd-dev
+
+      - name: Check package version consistency
+        run: |
+          setup_version="$(python -c 'import configparser; c = configparser.ConfigParser(); c.read("setup.cfg"); print(c["metadata"]["version"])')"
+          meson_version="$(sed -n "s/.*version : '\([^']*\)'.*/\1/p" meson.build)"
+          test "$setup_version" = "$meson_version"
+
+      - name: Build and smoke-test Python packages
+        run: |
+          python -m build
+          wheel_path="$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+          test -n "$wheel_path"
+          python -m venv "$RUNNER_TEMP/wheel-smoke"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip install --no-deps "$wheel_path"
+          test -x "$RUNNER_TEMP/wheel-smoke/sbin/qualcomm-cdi-generator.py"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" \
+            "$RUNNER_TEMP/wheel-smoke/sbin/qualcomm-cdi-generator.py" --help
+
+      - name: Build and smoke-test Meson installation
+        run: |
+          meson setup build/meson --prefix=/usr
+          DESTDIR="$RUNNER_TEMP/meson-root" meson install -C build/meson
+          test -x "$RUNNER_TEMP/meson-root/usr/sbin/qualcomm-cdi-generator.py"
+          test -f "$RUNNER_TEMP/meson-root/usr/lib/systemd/system/qualcomm-cdi-generator.service"
+          test -f "$RUNNER_TEMP/meson-root/usr/lib/systemd/system-preset/10-qualcomm-cdi-generator.preset"
+          python "$RUNNER_TEMP/meson-root/usr/sbin/qualcomm-cdi-generator.py" --help
+
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: Install Python checks
+        run: python -m pip install --requirement requirements-dev.txt
+
+      - name: Lint Python
+        run: python -m ruff check qualcomm-cdi-generator.py tests
+
+      - name: Lint GitHub Actions workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+  dco:
+    name: DCO sign-off
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check commit sign-offs
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          failed=0
+          while IFS= read -r commit; do
+            author="$(git show --no-patch --format='%an <%ae>' "$commit")"
+            signoffs="$(git show --no-patch --format='%(trailers:key=Signed-off-by,valueonly)' "$commit")"
+            if [[ "$author" == "dependabot[bot] <"* ]]; then
+              expected="dependabot[bot] <"
+              match_args=(-Fiq)
+            else
+              expected="$author"
+              match_args=(-Fixq)
+            fi
+            if ! grep "${match_args[@]}" "$expected" <<< "$signoffs"; then
+              echo "::error::Commit $(git show --no-patch --format='%h %s' "$commit") lacks a matching Signed-off-by trailer"
+              failed=1
+            fi
+          done < <(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA")
+          exit "$failed"

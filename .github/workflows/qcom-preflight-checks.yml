@@ -7,13 +7,17 @@ on:
   workflow_dispatch:
 
 permissions:
- contents: read
- security-events: write
+  contents: read
+  security-events: write
+
+concurrency:
+  group: preflight-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   preflight:
     name: Run QC Preflight Checks
-    uses: qualcomm/qcom-reusable-workflows/.github/workflows/reusable-qcom-preflight-checks-orchestrator.yml@v2
+    uses: qualcomm/qcom-reusable-workflows/.github/workflows/reusable-qcom-preflight-checks-orchestrator.yml@b070a366a3cfc48e398e7008dab2590fa343daeb # v2
     with:
       enable-semgrep-scan: true
       enable-dependency-review: true

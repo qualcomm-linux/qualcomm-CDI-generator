@@ -4,7 +4,7 @@ This file guides automation agents to develop and validate changes the same
 way CI and the maintainers expect:
 
 - the project is a single Python script plus its packaging (setuptools and
-  Debian) — no special build toolchain is required to run it,
+  Meson) — no special build toolchain is required to run it,
 - run the stand-alone unit test suite before opening/updating a PR, and
 - follow the project commit-message style with a `Signed-off-by` trailer.
 
@@ -13,7 +13,7 @@ way CI and the maintainers expect:
 qualcomm-CDI-generator is a Python script that probes the local hardware and
 writes [Container Device Interface (CDI)](https://github.com/cncf-tags/container-device-interface)
 JSON files so container runtimes can pass Qualcomm accelerators into
-containers. It ships with setuptools and Debian packaging and a `unittest`
+containers. It ships with setuptools and Meson packaging and a `unittest`
 suite under `tests/`.
 
 ## 1) Pull request / contribution workflow
@@ -42,11 +42,12 @@ python3 -m unittest discover -s tests -v
 CDI_TOOL=/path/to/cdi python3 -m unittest discover -s tests -v
 ```
 
-If the change touches packaging, also confirm both packages still build:
+If the change touches packaging, also confirm both packaging paths still build:
 
 ```sh
-python3 -m build --wheel
-dpkg-buildpackage -us -uc -b
+python3 -m build
+meson setup build/meson --prefix=/usr
+meson compile -C build/meson
 ```
 
 ## 2) Commit message best practices (project style)
@@ -55,7 +56,7 @@ Use the style seen in recent history:
 
 - `component: imperative summary` (preferred when scoped), e.g.
   - `qualcomm-cdi-generator.py: reference CDI spec, extract build_cdi_spec()`
-  - `debian: run the CDI validation tests during build`
+  - `ci: run the CDI validation tests during builds`
   - `README.md: document CDI spec conformance, validation and tests`
 - Or a concise imperative summary when cross-cutting.
 
