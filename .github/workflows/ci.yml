@@ -63,9 +63,13 @@ jobs:
         run: |
           cdi_ref="$CDI_COMMIT"
           if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
-            cdi_ref="$(curl --fail --silent --show-error \
-              https://api.github.com/repos/cncf-tags/container-device-interface/releases/latest |
-              python -c 'import json, sys; print(json.load(sys.stdin)["tag_name"])')"
+            release_metadata="$RUNNER_TEMP/cdi-release.json"
+            curl --fail --silent --show-error \
+              --output "$release_metadata" \
+              https://api.github.com/repos/cncf-tags/container-device-interface/releases/latest
+            cdi_ref="$(python -c \
+              'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["tag_name"])' \
+              "$release_metadata")"
           fi
           git init --quiet "$RUNNER_TEMP/cdi-source"
           git -C "$RUNNER_TEMP/cdi-source" remote add origin \
