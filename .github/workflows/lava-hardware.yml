@@ -7,12 +7,10 @@ on:
     - cron: "15 7 * * *"
   workflow_dispatch:
     inputs:
-      build_download_url:
+      run_id:
         description: >
-          Base URL of a qcom-deb-images build to flash before running tests
-          (e.g. an artifacts URL from that repo's debos.yml/build-daily.yml).
-          Defaults to the CDI_TEST_BUILD_DOWNLOAD_URL repository variable if
-          left empty.
+          Successful qcom-deb-images Build workflow run ID. Leave empty to
+          select the latest qualifying daily build.
         type: string
         default: ''
       suite:
@@ -21,6 +19,7 @@ on:
         default: trixie
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -28,12 +27,20 @@ jobs:
     if: github.repository == 'qualcomm-linux/qualcomm-CDI-generator'
     uses: ./.github/workflows/lava-schema-check.yml
 
-  hardware-tests:
+  resolve-image:
     if: github.repository == 'qualcomm-linux/qualcomm-CDI-generator'
     needs: schema-check
+    uses: ./.github/workflows/resolve-qcom-image.yml
+    with:
+      run_id: ${{ inputs.run_id || '' }}
+      suite: ${{ inputs.suite || 'trixie' }}
+
+  hardware-tests:
+    if: github.repository == 'qualcomm-linux/qualcomm-CDI-generator'
+    needs: [schema-check, resolve-image]
     uses: ./.github/workflows/lava-test.yml
     secrets:
       LAVATOKEN: ${{ secrets.LAVATOKEN }}
     with:
-      build_download_url: ${{ inputs.build_download_url || vars.CDI_TEST_BUILD_DOWNLOAD_URL }}
+      build_download_url: ${{ needs.resolve-image.outputs.build_url }}
       suite: ${{ inputs.suite || 'trixie' }}

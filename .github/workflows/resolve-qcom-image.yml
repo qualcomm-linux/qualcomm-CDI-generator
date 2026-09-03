@@ -1,0 +1,116 @@
+name: Resolve qcom-deb image
+
+on:
+  workflow_call:
+    inputs:
+      run_id:
+        description: Successful qcom-deb-images Build run ID; empty selects the latest
+        required: false
+        type: string
+      suite:
+        description: Debian suite required by the LAVA templates
+        required: true
+        type: string
+    outputs:
+      build_url:
+        description: Immutable qcom-deb-images artifact prefix
+        value: ${{ jobs.resolve.outputs.build_url }}
+      run_id:
+        description: Selected qcom-deb-images workflow run ID
+        value: ${{ jobs.resolve.outputs.run_id }}
+
+permissions: {}
+
+jobs:
+  resolve:
+    name: Resolve qcom-deb daily image
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      build_url: ${{ steps.resolve.outputs.build_url }}
+      run_id: ${{ steps.resolve.outputs.run_id }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve latest successful image build
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.run_id }}
+          SUITE: ${{ inputs.suite }}
+        run: |
+          set -euo pipefail
+
+          repo="qualcomm-linux/qcom-deb-images"
+          workdir="$RUNNER_TEMP/qcom-image-resolver"
+          mkdir -p "$workdir"
+          resolver_output="$workdir/outputs"
+
+          if [[ -n "$REQUESTED_RUN_ID" ]]; then
+            [[ "$REQUESTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
+              echo "::error::run_id must contain a positive decimal workflow run ID"
+              exit 1
+            }
+            gh api "repos/$repo/actions/runs/$REQUESTED_RUN_ID" >"$workdir/run.json"
+            python3 ci/qcom_image_resolver.py validate-requested-run \
+              --run-json "$workdir/run.json" \
+              --github-output "$resolver_output"
+          else
+            gh api --paginate --slurp \
+              "repos/$repo/actions/workflows/build.yml/runs?branch=main&status=success&per_page=100" \
+              >"$workdir/runs.json"
+            python3 ci/qcom_image_resolver.py resolve-run \
+              --runs-json "$workdir/runs.json" \
+              --github-output "$resolver_output"
+          fi
+
+          run_id=$(sed -n 's/^run_id=//p' "$resolver_output")
+          run_attempt=$(sed -n 's/^run_attempt=//p' "$resolver_output")
+          created_at=$(sed -n 's/^created_at=//p' "$resolver_output")
+          html_url=$(sed -n 's/^html_url=//p' "$resolver_output")
+
+          gh api --paginate --slurp \
+            "repos/$repo/actions/runs/$run_id/jobs?per_page=100" >"$workdir/jobs.json"
+          python3 ci/qcom_image_resolver.py validate-suite \
+            --jobs-json "$workdir/jobs.json" \
+            --suite "$SUITE"
+
+          gh api --paginate --slurp \
+            "repos/$repo/actions/runs/$run_id/artifacts?per_page=100" \
+            >"$workdir/artifacts.json"
+          artifact_id=$(python3 - "$workdir/artifacts.json" <<'PY'
+          import json
+          import sys
+
+          from ci.qcom_image_resolver import select_build_url_artifact
+
+          with open(sys.argv[1], encoding="utf-8") as source:
+              print(select_build_url_artifact(json.load(source)))
+          PY
+          )
+          if ! gh api "repos/$repo/actions/artifacts/$artifact_id/zip" \
+            >"$workdir/build_url.zip"; then
+            echo "::error::Selected run's build_url artifact is unavailable or expired"
+            exit 1
+          fi
+          build_url=$(python3 ci/qcom_image_resolver.py extract-build-url \
+            --archive "$workdir/build_url.zip" \
+            --run-id "$run_id" \
+            --run-attempt "$run_attempt")
+
+          {
+            echo "run_id=$run_id"
+            echo "build_url=$build_url"
+          } >>"$GITHUB_OUTPUT"
+          {
+            echo "## qcom-deb-images input"
+            echo
+            echo "- Run: [$run_id attempt $run_attempt]($html_url)"
+            echo "- Created: $created_at"
+            echo "- Artifact prefix: \`$build_url\`"
+          } >>"$GITHUB_STEP_SUMMARY"
