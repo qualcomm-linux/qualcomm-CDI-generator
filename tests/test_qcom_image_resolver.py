@@ -66,18 +66,44 @@ class QcomImageRunTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No qualifying successful"):
             resolver.select_latest_run([trusted_run(conclusion="failure")], NOW)
 
-    def test_rejects_explicit_untrusted_run(self):
-        with self.assertRaisesRegex(ValueError, "trusted qcom-deb-images"):
-            resolver.validate_run(trusted_run(path=".github/workflows/other.yml"), NOW)
+    def test_rejects_runs_that_violate_trust_requirements(self):
+        for field, value in (
+            ("head_repository", {"full_name": "example/qcom-deb-images"}),
+            ("event", "push"),
+            ("head_branch", "feature"),
+            ("conclusion", "failure"),
+            ("path", ".github/workflows/other.yml"),
+        ):
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, "trusted qcom-deb-images"):
+                    resolver.validate_run(trusted_run(**{field: value}), NOW)
 
-    def test_rejects_stale_run(self):
-        stale = trusted_run(
-            created_at=(NOW - timedelta(days=7, seconds=1)).strftime(
+    def test_accepts_run_at_fourteen_day_freshness_boundary(self):
+        self.assertEqual(resolver.MAX_BUILD_AGE, timedelta(hours=336))
+        run = trusted_run(
+            created_at=(NOW - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
+
+        self.assertEqual(resolver.validate_run(run, NOW).run_id, run["id"])
+
+    def test_accepts_run_one_second_within_fourteen_day_window(self):
+        run = trusted_run(
+            created_at=(NOW - timedelta(days=14) + timedelta(seconds=1)).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             )
         )
-        with self.assertRaisesRegex(ValueError, "older than seven days"):
-            resolver.validate_run(stale, NOW)
+
+        self.assertEqual(resolver.validate_run(run, NOW).run_id, run["id"])
+
+    def test_rejects_run_one_second_beyond_fourteen_day_window(self):
+        run = trusted_run(
+            created_at=(NOW - timedelta(days=14, seconds=1)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "older than fourteen days"):
+            resolver.validate_run(run, NOW)
 
     def test_rejects_invalid_run_metadata(self):
         for field, value in (

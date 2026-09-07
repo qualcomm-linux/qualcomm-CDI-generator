@@ -21,7 +21,7 @@ from typing import Any, Iterable
 TRUSTED_REPOSITORY = "qualcomm-linux/qcom-deb-images"
 TRUSTED_WORKFLOW_PATH = ".github/workflows/build.yml"
 TRUSTED_EVENT = "workflow_run"
-MAX_BUILD_AGE = timedelta(days=7)
+MAX_BUILD_AGE = timedelta(days=14)
 SUPPORTED_SUITES = ("trixie", "forky")
 BUILD_URL_RE = re.compile(
     r"https://qli-prod-artifacts\.qualcomm\.com/qcom-prd-gh-artifacts/"
@@ -83,7 +83,8 @@ def validate_run(run: Any, now: datetime) -> BuildRun:
     age = now - created_at
     if age > MAX_BUILD_AGE:
         raise ValueError(
-            f"Selected qcom-deb-images build is older than seven days ({age.days} days)"
+            f"Selected qcom-deb-images build is older than fourteen days "
+            f"({age.days} days)"
         )
 
     html_url = run.get("html_url")
