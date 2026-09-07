@@ -14,7 +14,7 @@ jobs:
       image: ghcr.io/linux-validation/lava/lava-server-amd64@sha256:746cdeebe8eb2b9ad7e2f9d7b26f3b2e2fe9bf3cb8e076877c8c1a6cbc024b4a
     steps:
       - name: Check out repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
