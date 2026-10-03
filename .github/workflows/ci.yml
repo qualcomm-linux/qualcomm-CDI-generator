@@ -47,6 +47,7 @@ jobs:
           python -m unittest
           tests.test_cdi_validation.StructuralTests
           tests.test_lava_ci
+          tests.test_qcom_image_resolver
           -v
 
   cdi-validation:
