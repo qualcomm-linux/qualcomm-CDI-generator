@@ -9,18 +9,21 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import re
+import subprocess
+import sys
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, BinaryIO, Callable, Iterable, Union
 
 
 TRUSTED_REPOSITORY = "qualcomm-linux/qcom-deb-images"
 TRUSTED_WORKFLOW_PATH = ".github/workflows/build.yml"
-TRUSTED_EVENT = "workflow_run"
+TRUSTED_EVENTS = ("schedule", "workflow_run")
 MAX_BUILD_AGE = timedelta(days=14)
 SUPPORTED_SUITES = ("trixie", "forky")
 BUILD_URL_RE = re.compile(
@@ -35,6 +38,7 @@ class BuildRun:
     run_attempt: int
     created_at: datetime
     html_url: str
+    conclusion: str = ""
 
 
 def _positive_integer(value: Any, field: str) -> int:
@@ -60,9 +64,9 @@ def _is_trusted_run(run: Any) -> bool:
     return (
         isinstance(repository, dict)
         and repository.get("full_name") == TRUSTED_REPOSITORY
-        and run.get("event") == TRUSTED_EVENT
+        and run.get("event") in TRUSTED_EVENTS
         and run.get("head_branch") == "main"
-        and run.get("conclusion") == "success"
+        and run.get("status") == "completed"
         and run.get("path") == TRUSTED_WORKFLOW_PATH
     )
 
@@ -92,11 +96,11 @@ def validate_run(run: Any, now: datetime) -> BuildRun:
         "https://github.com/qualcomm-linux/qcom-deb-images/actions/runs/"
     ):
         raise ValueError("Selected run has an invalid GitHub Actions URL")
-    return BuildRun(run_id, run_attempt, created_at, html_url)
+    return BuildRun(run_id, run_attempt, created_at, html_url, run.get("conclusion", ""))
 
 
 def select_latest_run(runs: Iterable[Any], now: datetime) -> BuildRun:
-    """Return the newest trusted successful run, rejecting stale selections."""
+    """Return the newest trusted completed run, rejecting stale selections."""
     candidates = []
     for run in runs:
         if not _is_trusted_run(run):
@@ -106,7 +110,7 @@ def select_latest_run(runs: Iterable[Any], now: datetime) -> BuildRun:
         except ValueError:
             continue
     if not candidates:
-        raise ValueError("No qualifying successful qcom-deb-images Build run was found")
+        raise ValueError("No qualifying completed qcom-deb-images Build run was found")
     return validate_run(max(candidates, key=lambda candidate: candidate[0])[1], now)
 
 
@@ -150,8 +154,13 @@ def validate_suite_build(jobs_payload: Any, suite: str) -> None:
         raise ValueError(
             f"Suite {suite!r} is not built by the trusted qcom-deb-images workflow"
         )
-    expected_name = (
+    legacy_name = (
         f"build ({suite}, default) / "
+        f"Build and upload debos recipes ({suite}, default)"
+    )
+    current_name = (
+        f"build ({suite}, default, default, "
+        "linux-image-qcom-next,linux-headers-qcom-next) / "
         f"Build and upload debos recipes ({suite}, default)"
     )
     if not isinstance(jobs_payload, (dict, list)):
@@ -159,7 +168,7 @@ def validate_suite_build(jobs_payload: Any, suite: str) -> None:
     jobs = list(_flatten_jobs(jobs_payload))
     if not any(
         isinstance(job, dict)
-        and job.get("name") == expected_name
+        and job.get("name") in (legacy_name, current_name)
         and job.get("conclusion") == "success"
         for job in jobs
     ):
@@ -187,7 +196,7 @@ def expected_build_url(run_id: int, run_attempt: int) -> str:
     )
 
 
-def read_build_url_artifact(archive: Path, run: BuildRun) -> str:
+def read_build_url_artifact(archive: Union[Path, BinaryIO], run: BuildRun) -> str:
     """Read and strictly validate the URL in a downloaded build_url artifact."""
     try:
         with zipfile.ZipFile(archive) as artifact:
@@ -209,6 +218,97 @@ def read_build_url_artifact(archive: Path, run: BuildRun) -> str:
     if not BUILD_URL_RE.fullmatch(build_url):
         raise ValueError("build_url artifact does not use the trusted URL format")
     return build_url
+
+
+def _github_api(endpoint: str, paginate: bool = False) -> bytes:
+    command = ["gh", "api", endpoint]
+    if paginate:
+        command.extend(["--paginate", "--slurp"])
+    result = subprocess.run(command, capture_output=True, check=False)
+    if result.returncode:
+        raise RuntimeError(
+            f"GitHub API request failed for {endpoint}: "
+            f"{result.stderr.decode('utf-8', errors='replace').strip()}"
+        )
+    return result.stdout
+
+
+def resolve_publication(
+    runs: Iterable[Any],
+    suite: str,
+    now: datetime,
+    api: Callable[..., bytes] = _github_api,
+    requested: bool = False,
+) -> tuple[BuildRun, str]:
+    """Select the newest fresh publication, not the newest passing board tests."""
+    if suite not in SUPPORTED_SUITES:
+        raise ValueError(f"Suite {suite!r} is not built by the trusted workflow")
+    candidates = []
+    for raw_run in runs:
+        try:
+            candidates.append(validate_run(raw_run, now))
+        except ValueError as error:
+            if requested:
+                raise
+            print(f"Skipping workflow run: {error}", file=sys.stderr)
+    candidates.sort(key=lambda run: run.created_at, reverse=True)
+    for run in candidates:
+        try:
+            prefix = f"repos/{TRUSTED_REPOSITORY}/actions/runs/{run.run_id}"
+            # A rerun must not borrow a successful suite job from an earlier attempt.
+            jobs = json.loads(
+                api(f"{prefix}/attempts/{run.run_attempt}/jobs?per_page=100", True)
+            )
+            validate_suite_build(jobs, suite)
+            artifacts = json.loads(api(f"{prefix}/artifacts?per_page=100", True))
+            artifact_id = select_build_url_artifact(artifacts)
+            archive = api(
+                f"repos/{TRUSTED_REPOSITORY}/actions/artifacts/{artifact_id}/zip"
+            )
+            build_url = read_build_url_artifact(io.BytesIO(archive), run)
+            return run, build_url
+        except ValueError as error:
+            if requested:
+                raise
+            print(f"Skipping run {run.run_id}: {error}", file=sys.stderr)
+    raise ValueError(
+        f"No qualifying fresh qcom-deb-images publication for {suite} was found"
+    )
+
+
+def resolve_image(args: argparse.Namespace) -> None:
+    requested = bool(args.run_id)
+    if requested:
+        if not re.fullmatch(r"[1-9][0-9]*", args.run_id):
+            raise ValueError("run_id must contain a positive decimal workflow run ID")
+        runs = [
+            json.loads(
+                _github_api(
+                    f"repos/{TRUSTED_REPOSITORY}/actions/runs/{args.run_id}"
+                )
+            )
+        ]
+    else:
+        payload = json.loads(
+            _github_api(
+                f"repos/{TRUSTED_REPOSITORY}/actions/workflows/build.yml/"
+                "runs?branch=main&status=completed&per_page=100",
+                True,
+            )
+        )
+        runs = list(_flatten_workflow_runs(payload))
+    run, build_url = resolve_publication(
+        runs, args.suite, _current_time(), api=_github_api, requested=requested
+    )
+    _write_output(args.github_output, run_id=run.run_id, build_url=build_url)
+    with args.github_summary.open("a", encoding="utf-8") as summary:
+        summary.write(
+            "## qcom-deb-images input\n\n"
+            f"- Run: [{run.run_id} attempt {run.run_attempt}]({run.html_url})\n"
+            f"- Created: {run.created_at:%Y-%m-%dT%H:%M:%SZ}\n"
+            f"- Upstream workflow conclusion: {run.conclusion}\n"
+            f"- Artifact prefix: `{build_url}`\n"
+        )
 
 
 def _load_json(path: Path) -> Any:
@@ -267,6 +367,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    image_parser = subparsers.add_parser("resolve-image")
+    image_parser.add_argument("--run-id", default="")
+    image_parser.add_argument("--suite", required=True, choices=SUPPORTED_SUITES)
+    image_parser.add_argument("--github-output", required=True, type=Path)
+    image_parser.add_argument("--github-summary", required=True, type=Path)
+    image_parser.set_defaults(handler=resolve_image)
+
     auto_parser = subparsers.add_parser("resolve-run")
     auto_parser.add_argument("--runs-json", required=True, type=Path)
     auto_parser.add_argument("--github-output", required=True, type=Path)
@@ -295,7 +402,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         args.handler(args)
-    except ValueError as error:
+    except (ValueError, RuntimeError) as error:
         parser.error(str(error))
     return 0
 
