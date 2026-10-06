@@ -93,31 +93,31 @@ class QcomImageRunTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "trusted qcom-deb-images"):
                     resolver.validate_run(trusted_run(**{field: value}), NOW)
 
-    def test_accepts_run_at_fourteen_day_freshness_boundary(self):
-        self.assertEqual(resolver.MAX_BUILD_AGE, timedelta(hours=336))
+    def test_accepts_run_at_ninety_day_freshness_boundary(self):
+        self.assertEqual(resolver.MAX_BUILD_AGE, timedelta(hours=2160))
         run = trusted_run(
-            created_at=(NOW - timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            created_at=(NOW - timedelta(days=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
         )
 
         self.assertEqual(resolver.validate_run(run, NOW).run_id, run["id"])
 
-    def test_accepts_run_one_second_within_fourteen_day_window(self):
+    def test_accepts_run_one_second_within_ninety_day_window(self):
         run = trusted_run(
-            created_at=(NOW - timedelta(days=14) + timedelta(seconds=1)).strftime(
+            created_at=(NOW - timedelta(days=90) + timedelta(seconds=1)).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             )
         )
 
         self.assertEqual(resolver.validate_run(run, NOW).run_id, run["id"])
 
-    def test_rejects_run_one_second_beyond_fourteen_day_window(self):
+    def test_rejects_run_one_second_beyond_ninety_day_window(self):
         run = trusted_run(
-            created_at=(NOW - timedelta(days=14, seconds=1)).strftime(
+            created_at=(NOW - timedelta(days=90, seconds=1)).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             )
         )
 
-        with self.assertRaisesRegex(ValueError, "older than fourteen days"):
+        with self.assertRaisesRegex(ValueError, "older than three months"):
             resolver.validate_run(run, NOW)
 
     def test_rejects_invalid_run_metadata(self):
@@ -358,7 +358,7 @@ class QcomImagePublicationTests(unittest.TestCase):
 
     def test_rejects_stale_and_untrusted_publications_before_api_calls(self):
         runs = [
-            trusted_run(created_at="2026-08-01T00:00:00Z"),
+            trusted_run(created_at="2026-05-01T00:00:00Z"),
             trusted_run(event="workflow_dispatch"),
             trusted_run(status="in_progress"),
         ]

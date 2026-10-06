@@ -10,7 +10,7 @@ on:
       run_id:
         description: >
           Completed qcom-deb-images Build workflow run ID with a valid publication
-          no older than fourteen days. Leave empty to select the latest publication.
+          no older than three months. Leave empty to select the latest publication.
         type: string
         default: ''
       suite:
