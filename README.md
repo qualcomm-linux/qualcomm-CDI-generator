@@ -296,7 +296,7 @@ test.
 Image selection uses valid publications from completed trusted `build.yml`
 runs on `main`, accepting scheduled and legacy `workflow_run` triggers.
 Upstream board-test failures do not disqualify published images. The
-fourteen-day freshness limit, successful default image build for the requested
+three-month freshness limit, successful default image build for the requested
 suite, and live immutable publication pointer remain mandatory. Automatic
 selection tries older fresh runs when a candidate fails publication validation;
 an explicitly requested run must pass without fallback.
