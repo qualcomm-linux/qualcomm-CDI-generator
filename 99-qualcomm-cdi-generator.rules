@@ -1,0 +1,30 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+#
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+# (Re)generate the Qualcomm CDI files whenever a device node handled by
+# qualcomm-cdi-generator.py appears or disappears.
+#
+# qualcomm-cdi-generator.service is Type=oneshot with RemainAfterExit=true,
+# so "restart" is used here (not "start") to force it to re-probe and rewrite
+# the CDI files even though the unit is already active. systemd merges
+# repeated restart requests for the same unit that are queued back-to-back,
+# so a burst of hotplug events (e.g. many /dev/video* nodes appearing at
+# once) collapses into a single regeneration.
+
+# GPU render nodes (/dev/dri/renderD*)
+ACTION=="add", SUBSYSTEM=="drm", KERNEL=="renderD*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="remove", SUBSYSTEM=="drm", KERNEL=="renderD*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+
+# V4L2 video devices (/dev/video*)
+ACTION=="add", SUBSYSTEM=="video4linux", KERNEL=="video*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="remove", SUBSYSTEM=="video4linux", KERNEL=="video*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+
+# DMA-BUF heaps (/dev/dma_heap/*system)
+ACTION=="add", SUBSYSTEM=="dma_heap", KERNEL=="*system", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="remove", SUBSYSTEM=="dma_heap", KERNEL=="*system", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+
+# FastRPC CDSP/ADSP nodes, including their -secure siblings
+# (/dev/fastrpc-cdsp*, /dev/fastrpc-adsp*)
+ACTION=="add", SUBSYSTEM=="misc", KERNEL=="fastrpc-*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
+ACTION=="remove", SUBSYSTEM=="misc", KERNEL=="fastrpc-*", RUN+="/usr/bin/systemctl --no-block restart qualcomm-cdi-generator.service"
