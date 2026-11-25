@@ -131,6 +131,7 @@ jobs:
           python -m venv "$RUNNER_TEMP/wheel-smoke"
           "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip install --no-deps "$wheel_path"
           test -x "$RUNNER_TEMP/wheel-smoke/sbin/qualcomm-cdi-generator.py"
+          test -f "$RUNNER_TEMP/wheel-smoke/lib/tmpfiles.d/qualcomm-cdi-generator.conf"
           "$RUNNER_TEMP/wheel-smoke/bin/python" \
             "$RUNNER_TEMP/wheel-smoke/sbin/qualcomm-cdi-generator.py" --help
 
@@ -141,7 +142,24 @@ jobs:
           test -x "$RUNNER_TEMP/meson-root/usr/sbin/qualcomm-cdi-generator.py"
           test -f "$RUNNER_TEMP/meson-root/usr/lib/systemd/system/qualcomm-cdi-generator.service"
           test -f "$RUNNER_TEMP/meson-root/usr/lib/systemd/system-preset/10-qualcomm-cdi-generator.preset"
+          test -f "$RUNNER_TEMP/meson-root/usr/lib/tmpfiles.d/qualcomm-cdi-generator.conf"
           python "$RUNNER_TEMP/meson-root/usr/sbin/qualcomm-cdi-generator.py" --help
+
+      - name: Check tmpfiles rules
+        run: |
+          root="$RUNNER_TEMP/tmpfiles-root"
+          log="$RUNNER_TEMP/tmpfiles.log"
+          # systemd >= 259 rejects user-owned to root-owned path transitions.
+          sudo install -d -m 0755 "$root/run"
+          sudo systemd-tmpfiles --create --root="$root" "$RUNNER_TEMP/meson-root/usr/lib/tmpfiles.d/qualcomm-cdi-generator.conf"
+          test "$(stat -c '%a' "$root/run/cdi")" = 755
+          echo existing | sudo tee "$root/run/cdi/existing.json" > /dev/null
+          sudo chmod 600 "$root/run/cdi/existing.json"
+          sudo env SYSTEMD_LOG_LEVEL=debug systemd-tmpfiles --create --root="$root" "$RUNNER_TEMP/meson-root/usr/lib/tmpfiles.d/qualcomm-cdi-generator.conf" 2>"$log"
+          grep -F "Running create action for entry Z $root/run/cdi" "$log"
+          test "$(stat -c '%a' "$root/run/cdi")" = 755
+          test "$(stat -c '%a' "$root/run/cdi/existing.json")" = 600
+          sudo grep -qx existing "$root/run/cdi/existing.json"
 
   static-checks:
     name: Static checks

@@ -3,6 +3,7 @@ Description=Qualcomm CDI generator
 
 [Service]
 Type=oneshot
+ExecStartPre=/usr/bin/systemd-tmpfiles --create qualcomm-cdi-generator.conf
 ExecStart=/usr/sbin/qualcomm-cdi-generator.py
 # Make systemctl output less confusing: "active (exited)" vs "inactive (dead)"
 RemainAfterExit=true

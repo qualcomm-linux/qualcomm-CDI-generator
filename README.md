@@ -44,6 +44,18 @@ Either restart the docker daemon or reboot to have this config take effect.
 
 Copy over `qualcomm-cdi-generator.py`
 
+### SELinux
+
+The packages install a `tmpfiles.d` rule to create `/run/cdi` and restore policy labels on existing files. The systemd service runs the rule before generating specs, including when started after installation.
+
+This requires a suitable SELinux file context for `/run/cdi` and policy permissions for the generator and container runtime. Upstream refpolicy labels `/etc/cdi` but not `/run/cdi`; for a refpolicy system, add the following rule to `container.fc`:
+
+```
+/run/cdi(/.*)?		gen_context(system_u:object_r:container_config_t,s0)
+```
+
+When installing by hand, copy `qualcomm-cdi-generator.conf` to `/usr/lib/tmpfiles.d/` and run `systemd-tmpfiles --create qualcomm-cdi-generator.conf` before running the generator directly. The rule uses the installed policy; it does not define SELinux types or permissions.
+
 ## Usage
 
 On the target, run the CDI generator as root. The output directory `/run/cdi` is created automatically:
